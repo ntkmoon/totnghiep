@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      /* Toàn bộ CSS giữ nguyên như code trước */
+      /* Toàn bộ CSS giữ nguyên */
       * {
         margin: 0;
         padding: 0;
@@ -1725,6 +1725,95 @@
       warehouses = initWarehouses();
       potentialWarehouses = [];
       
+      // ==================== HÀM LẤY ĐỊA CHỈ KHO THEO ID ====================
+      function getWarehouseAddressById(warehouseId) {
+        const warehouse = warehouses.find(w => w.id === warehouseId);
+        return warehouse ? warehouse.address : '';
+      }
+      
+      // ==================== HÀM HIỂN THỊ TUYẾN ĐƯỜNG CỦA XE ====================
+      async function viewTruckRoute(truck) {
+        if(!truck.currentTrips?.length){ 
+          showToast("Xe không có chuyến nào đang giao!"); 
+          return; 
+        }
+        
+        const trip = truck.currentTrips[0];
+        const savedDistance = trip.distance;
+        const routeName = trip.routeName || truck.currentRouteName || 'Đang vận chuyển';
+        
+        showToast(`🚛 Xe ${truck.plate} | 📏 Quãng đường: ${savedDistance.toFixed(1)} km | ${routeName}`);
+        
+        // Nếu đã có directions đã lưu thì dùng luôn
+        if(trip.savedDirections) {
+          if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
+          currentRouteRenderers = [];
+          const renderer = new google.maps.DirectionsRenderer({ 
+            map, 
+            polylineOptions: { strokeColor: "#ff5722", strokeWeight: 6, strokeOpacity: 0.9 } 
+          });
+          renderer.setDirections(trip.savedDirections);
+          currentRouteRenderers.push(renderer);
+          const bounds = new google.maps.LatLngBounds();
+          trip.savedDirections.routes[0].overview_path.forEach(p=>bounds.extend(p));
+          map.fitBounds(bounds);
+          return;
+        }
+        
+        // Nếu chưa có, tìm địa chỉ kho xuất phát dựa trên locationWarehouseId của xe
+        const originAddress = getWarehouseAddressById(truck.locationWarehouseId);
+        const destination = trip.destination;
+        const waypoints = trip.waypoints.slice(0, -1).map(w => ({ location: w, stopover: true }));
+        
+        if (!originAddress) {
+          showToast("⚠️ Không tìm thấy địa chỉ kho xuất phát!");
+          return;
+        }
+        
+        showLoading();
+        const directionsService = new google.maps.DirectionsService();
+        
+        try {
+          const request = {
+            origin: originAddress,
+            destination: destination,
+            waypoints: waypoints,
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC
+          };
+          
+          directionsService.route(request, (result, status) => {
+            hideLoading();
+            if (status === 'OK' && result) {
+              if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
+              currentRouteRenderers = [];
+              const renderer = new google.maps.DirectionsRenderer({ 
+                map, 
+                polylineOptions: { strokeColor: "#ff5722", strokeWeight: 6, strokeOpacity: 0.9 } 
+              });
+              renderer.setDirections(result);
+              currentRouteRenderers.push(renderer);
+              
+              // Lưu directions để lần sau dùng lại
+              trip.savedDirections = result;
+              
+              const bounds = new google.maps.LatLngBounds();
+              result.routes[0].overview_path.forEach(p=>bounds.extend(p));
+              map.fitBounds(bounds);
+              
+              showToast(`✅ Đã hiển thị tuyến đường của xe ${truck.plate}`);
+            } else {
+              showToast("❌ Không thể hiển thị tuyến đường! Vui lòng thử lại.");
+              console.error("Directions error:", status);
+            }
+          });
+        } catch (error) {
+          hideLoading();
+          showToast("❌ Có lỗi xảy ra khi hiển thị tuyến đường!");
+          console.error(error);
+        }
+      }
+      
       // ==================== CÁC HÀM RENDER, FILTER ====================
       function updateLocationFilterButtons() {
         const container = document.getElementById('locationFilterButtons');
@@ -1801,26 +1890,6 @@
             `}
           </div>`;
         }).join('');
-      }
-      
-      function viewTruckRoute(truck){
-        if(!truck.currentTrips?.length){ showToast("Xe không có chuyến nào đang giao!"); return; }
-        const trip = truck.currentTrips[0];
-        const savedDistance = trip.distance;
-        showToast(`🚛 Xe ${truck.plate} | 📏 Quãng đường: ${savedDistance.toFixed(1)} km | ${trip.routeName || ''}`);
-        
-        if(trip.savedDirections) {
-          if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
-          currentRouteRenderers = [];
-          const renderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#ff5722", strokeWeight: 6, strokeOpacity: 0.9 } });
-          renderer.setDirections(trip.savedDirections);
-          currentRouteRenderers.push(renderer);
-          const bounds = new google.maps.LatLngBounds();
-          trip.savedDirections.routes[0].overview_path.forEach(p=>bounds.extend(p));
-          map.fitBounds(bounds);
-        } else {
-          showToast(`📍 Xe đang trên đường từ kho đến ${trip.destination}`);
-        }
       }
       
       function renderWarehouseList() {
@@ -2158,7 +2227,6 @@
       
       // ==================== HÀM CHỌN XE THEO KHO ====================
       function selectMinTrucksFromWarehouse(totalOil, warehouseId) {
-        // CHỈ LẤY XE RẢNH TẠI KHO ĐÃ CHỌN
         const availableTrucksAtWarehouse = fleet.filter(t => t.status === 'available' && t.locationWarehouseId === warehouseId);
         
         if (availableTrucksAtWarehouse.length === 0) {
@@ -2204,7 +2272,6 @@
         if(!warehouse) { showToast("⚠️ Không tìm thấy kho!"); return; }
         if(warehouse.oil < totalOil) { showToast(`⚠️ Kho ${warehouse.name} chỉ còn ${warehouse.oil} m³ dầu!`); return; }
         
-        // CHỌN XE TẠI ĐÚNG KHO NÀY
         const { selected, success, error } = selectMinTrucksFromWarehouse(totalOil, warehouse.id);
         
         if(!success){ 
@@ -2213,7 +2280,6 @@
           return; 
         }
         
-        // Trừ dầu từ kho
         warehouse.oil -= totalOil;
         updateWarehouseStats();
         renderWarehouseList();
@@ -2638,7 +2704,6 @@
         
         showLoading();
         
-        // CHỌN XE TẠI KHO XUẤT
         const availableTrucksAtSource = fleet.filter(t => t.status === 'available' && t.locationWarehouseId === sourceId);
         
         if (availableTrucksAtSource.length === 0) {
