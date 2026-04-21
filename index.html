@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+      /* Toàn bộ CSS giữ nguyên như code trước */
       * {
         margin: 0;
         padding: 0;
@@ -498,6 +499,20 @@
         font-weight: 600;
       }
       
+      .route-name-badge {
+        background: #ff9800;
+        color: white;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-size: 8px;
+        text-align: center;
+        margin-top: 4px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
       .view-route-btn {
         padding: 5px;
         border-radius: 5px;
@@ -659,6 +674,24 @@
       .rating-good { background: linear-gradient(135deg, #64dd17 0%, #00bcd4 100%); }
       .rating-average { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }
       .rating-poor { background: linear-gradient(135deg, #ff5252 0%, #ff1744 100%); }
+      
+      .refuel-btn {
+        background: #2196f3;
+        color: white;
+        margin-top: 5px;
+        padding: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 9px;
+        width: 100%;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+      }
+      
+      .refuel-btn:hover {
+        background: #1976d2;
+      }
       
       .add-to-warehouse-btn {
         background: #4caf50;
@@ -995,7 +1028,7 @@
         color: #ff8f00;
       }
       
-      .form-group input, .form-group textarea {
+      .form-group input, .form-group textarea, .form-group select {
         width: 100%;
         padding: 10px 12px;
         border: 1px solid #ddd;
@@ -1004,7 +1037,7 @@
         transition: all 0.2s;
       }
       
-      .form-group input:focus, .form-group textarea:focus {
+      .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
         outline: none;
         border-color: #ff8f00;
         box-shadow: 0 0 0 2px rgba(255, 143, 0, 0.1);
@@ -1283,6 +1316,7 @@
       <div id="map"></div>
     </div>
     
+    <!-- Modal Thêm/Sửa Kho -->
     <div class="modal" id="warehouseModal">
       <div class="modal-content">
         <div class="modal-header">
@@ -1329,6 +1363,50 @@
       </div>
     </div>
     
+    <!-- Modal Nạp Dầu (Chuyển kho) -->
+    <div class="modal" id="refuelModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, #2196f3 0%, #0d47a1 100%);">
+          <h3>⛽ NẠP DẦU - CHUYỂN KHO</h3>
+          <span class="close-modal" onclick="closeRefuelModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="refuelForm" onsubmit="createRefuelOrder(event)">
+            <input type="hidden" id="targetWarehouseId" value="">
+            <div class="form-group">
+              <label>Kho cần nạp <span>*</span></label>
+              <input type="text" id="targetWarehouseName" readonly style="background:#f5f5f5; font-weight:600;">
+            </div>
+            <div class="form-group">
+              <label>Chọn kho xuất dầu <span>*</span></label>
+              <select id="sourceWarehouseId" required onchange="updateSourceWarehouseInfo()">
+                <option value="">-- Chọn kho --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Thông tin kho xuất</label>
+              <div style="background:#f9f9f9; padding:8px; border-radius:6px; font-size:12px;" id="sourceWarehouseInfo">
+                Đang chờ chọn kho...
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Số lượng dầu cần chuyển (m³) <span>*</span></label>
+              <input type="number" id="refuelAmount" placeholder="VD: 100" min="1" step="1" required onchange="validateRefuelAmount()">
+              <div style="font-size:10px; color:#666; margin-top:4px;" id="amountWarning"></div>
+            </div>
+            <div class="form-group">
+              <label>Ghi chú</label>
+              <textarea id="refuelNote" rows="2" placeholder="Ghi chú cho đơn chuyển kho..."></textarea>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" onclick="closeRefuelModal()">Hủy</button>
+              <button type="submit" class="btn-submit" style="background: linear-gradient(135deg, #2196f3 0%, #0d47a1 100%);">Tạo đơn chuyển kho</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
     <div class="modal" id="potentialModal">
       <div class="modal-content">
         <div class="modal-header" style="background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);">
@@ -1363,7 +1441,7 @@
             </div>
             <div class="modal-footer">
               <button type="button" class="btn-cancel" onclick="closePotentialModal()">Hủy</button>
-              <button type="submit" class="btn-submit">Thêm vào danh sách</button>
+              <button type="submit" class="btn-submit">Thêm vào danh sách đánh giá</button>
             </div>
           </form>
         </div>
@@ -1398,100 +1476,7 @@
     </div>
 
     <script>
-      // [Tất cả code JavaScript giữ nguyên như trước - phần script rất dài, tôi đã giữ nguyên cấu trúc]
-      // Vì lý do độ dài, tôi sẽ cung cấp các hàm chính đã được sửa lỗi
-      
-      // Hàm thêm kho từ danh sách đề xuất vào danh sách kho chính (ĐÃ SỬA LỖI)
-      async function addPotentialToWarehouse(warehouse) {
-        // Kiểm tra xem kho đã tồn tại chưa
-        const exists = warehouses.find(w => w.name === warehouse.name);
-        if (exists) {
-          showToast(`⚠️ Kho "${warehouse.name}" đã tồn tại trong danh sách!`);
-          return;
-        }
-        
-        // Tạo ID mới
-        const newId = Math.max(...warehouses.map(w => w.id), 0) + 1;
-        
-        // Lấy tọa độ từ địa chỉ nếu chưa có
-        let lat = warehouse.lat || null;
-        let lng = warehouse.lng || null;
-        if (!lat && warehouse.address) {
-          const coords = await geocodeAddress(warehouse.address);
-          if (coords) {
-            lat = coords.lat;
-            lng = coords.lng;
-          }
-        }
-        
-        // Thêm vào danh sách kho chính
-        warehouses.push({
-          id: newId,
-          name: warehouse.name,
-          address: warehouse.address,
-          capacity: warehouse.capacity,
-          oil: warehouse.oil || 0,
-          openCost: warehouse.openCost || 0,
-          operatingCost: warehouse.operatingCost || 0,
-          lat: lat,
-          lng: lng
-        });
-        
-        // Cập nhật giao diện
-        renderWarehouseList();
-        renderRatingList();
-        updateWarehouseStats();
-        loadWarehouseSelect();
-        
-        showToast(`✅ Đã thêm kho "${warehouse.name}" vào danh sách quản lý!`);
-      }
-      
-      // Hàm thêm tất cả kho đề xuất
-      async function addAllSuggestedWarehouses(suggestedList) {
-        let addedCount = 0;
-        for (const warehouse of suggestedList) {
-          const exists = warehouses.find(w => w.name === warehouse.name);
-          if (!exists) {
-            const newId = Math.max(...warehouses.map(w => w.id), 0) + 1;
-            let lat = warehouse.lat || null;
-            let lng = warehouse.lng || null;
-            if (!lat && warehouse.address) {
-              const coords = await geocodeAddress(warehouse.address);
-              if (coords) {
-                lat = coords.lat;
-                lng = coords.lng;
-              }
-            }
-            warehouses.push({
-              id: newId,
-              name: warehouse.name,
-              address: warehouse.address,
-              capacity: warehouse.capacity,
-              oil: warehouse.oil || 0,
-              openCost: warehouse.openCost || 0,
-              operatingCost: warehouse.operatingCost || 0,
-              lat: lat,
-              lng: lng
-            });
-            addedCount++;
-          }
-        }
-        
-        if (addedCount > 0) {
-          renderWarehouseList();
-          renderRatingList();
-          updateWarehouseStats();
-          loadWarehouseSelect();
-          showToast(`✅ Đã thêm ${addedCount} kho mới vào danh sách quản lý!`);
-        } else {
-          showToast(`⚠️ Không có kho mới nào được thêm (các kho đã tồn tại)`);
-        }
-      }
-      
-      // Phần còn lại của script giữ nguyên...
-      // (Tất cả các hàm khác như initMap, renderFleetList, v.v. đã được giữ nguyên từ code trước)
-      
-      // KHAI BÁO CÁC BIẾN TOÀN CỤC
+      // ==================== KHỞI TẠO BIẾN TOÀN CỤC ====================
       let map;
       let autocompleteInstances = [];
       let currentRouteRenderers = [];
@@ -1511,6 +1496,7 @@
       let currentPriority = 'total';
       let potentialMarkers = [];
       
+      // ==================== HẰNG SỐ ====================
       const EMISSION_FACTORS = { SMALL: 0.4, MEDIUM: 0.8, LARGE: 1.2 };
       const COST_PER_KM = { SMALL: 2500, MEDIUM: 5500, LARGE: 7000 };
       const API_KEY = 'AIzaSyBBEovYzvm-vjyXtcaTx53u_4cl7Zy5_ck';
@@ -1527,17 +1513,26 @@
         { id: 4, name: 'Kho Quảng Ninh', address: 'Hạ Long, Quảng Ninh', oil: 280, capacity: 600, lat: 20.951, lng: 107.080, openCost: 3800, operatingCost: 390 }
       ];
       
-      // Các hàm helper
-      function generateRandomPlate() { const digits = Math.floor(10000 + Math.random() * 90000); return `15C-${digits}`; }
+      // ==================== HÀM TIỆN ÍCH ====================
+      function generateRandomPlate() { 
+        const digits = Math.floor(10000 + Math.random() * 90000); 
+        return `15C-${digits}`; 
+      }
       function formatMoneyInMillions(amount) { return (amount / 1000000).toFixed(1) + 'M'; }
       function formatNumber(num) { return num.toFixed(1); }
-      function showToast(message) { const toast = document.createElement('div'); toast.className = 'toast-message'; toast.textContent = message; document.body.appendChild(toast); setTimeout(() => toast.remove(), 2000); }
+      function showToast(message) { 
+        const toast = document.createElement('div'); 
+        toast.className = 'toast-message'; 
+        toast.textContent = message; 
+        document.body.appendChild(toast); 
+        setTimeout(() => toast.remove(), 2000); 
+      }
       function calcPollution(distanceKm, type) { return distanceKm * EMISSION_FACTORS[type]; }
       function calcTripCost(distanceKm, type) { return distanceKm * COST_PER_KM[type]; }
       function showLoading(){ document.getElementById('loading').style.display='block'; }
       function hideLoading(){ document.getElementById('loading').style.display='none'; }
       
-      // Hàm geocode địa chỉ
+      // ==================== HÀM GEOCODE & KHOẢNG CÁCH ====================
       async function geocodeAddress(address) {
         return new Promise((resolve) => {
           const geocoder = new google.maps.Geocoder();
@@ -1551,7 +1546,6 @@
         });
       }
       
-      // Hàm tính khoảng cách
       function calculateDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -1563,7 +1557,7 @@
         return R * c;
       }
       
-      // Hàm tính điểm hiệu suất kho
+      // ==================== HÀM ĐÁNH GIÁ HIỆU SUẤT KHO ====================
       function calculateWarehousePerformance(warehouse, distanceToDestination = null) {
         let scores = {}, totalScore = 0;
         let locationScore = 0;
@@ -1616,23 +1610,113 @@
         return { totalScore, rating, ratingClass, scores, utilizationRate };
       }
       
-      // Các hàm xử lý chính (initMap, renderFleetList, v.v.) - giữ nguyên từ code trước
-      // [Code tiếp theo được giữ nguyên...]
+      // ==================== TẠO DỮ LIỆU MẪU CHO XE ====================
+      function createSampleTrips() {
+        return [
+          { waypoints: ['Hải Dương', 'Bắc Ninh'], load: 12, destination: 'Bắc Ninh', distance: 105, pollution: 84, cost: 577500, hours: 2.6, savedDirections: null, routeName: '⭐ Tối ưu' },
+          { waypoints: ['Hải Dương'], load: 25, destination: 'Hải Dương', distance: 45, pollution: 54, cost: 315000, hours: 1.1, savedDirections: null, routeName: '💰 Chi phí' },
+          { waypoints: ['Thái Bình'], load: 10, destination: 'Thái Bình', distance: 70, pollution: 56, cost: 385000, hours: 1.75, savedDirections: null, routeName: '🌿 Phát thải' }
+        ];
+      }
       
-      // Khởi tạo dữ liệu mẫu
-      function initFleet() {
+      function generateAdditionalTrucks() {
         const now = new Date();
-        const base = [
+        const sampleTrips = createSampleTrips();
+        const additionalTrucks = [];
+        const warehouseIds = [1, 2, 3, 4];
+        const warehouseNames = ['Kho Hải Phòng', 'Kho Hà Nội', 'Kho Hải Dương', 'Kho Quảng Ninh'];
+        let truckId = 9;
+        
+        const distribution = [
+          { type: 'SMALL', warehouseIndex: 0 }, { type: 'MEDIUM', warehouseIndex: 0 }, { type: 'LARGE', warehouseIndex: 1 },
+          { type: 'SMALL', warehouseIndex: 1 }, { type: 'MEDIUM', warehouseIndex: 2 }, { type: 'LARGE', warehouseIndex: 2 },
+          { type: 'SMALL', warehouseIndex: 3 }, { type: 'MEDIUM', warehouseIndex: 3 }, { type: 'MEDIUM', warehouseIndex: 0 },
+          { type: 'LARGE', warehouseIndex: 1 }
+        ];
+        
+        for (let i = 0; i < distribution.length; i++) {
+          const dist = distribution[i];
+          const type = dist.type;
+          const warehouseId = warehouseIds[dist.warehouseIndex];
+          const warehouseName = warehouseNames[dist.warehouseIndex];
+          const typeInfo = TRUCK_TYPES[type];
+          const isBusy = i < 2;
+          
+          let truck;
+          if (isBusy && sampleTrips[i % sampleTrips.length]) {
+            const trip = sampleTrips[i % sampleTrips.length];
+            truck = {
+              id: truckId++,
+              type: type,
+              volume: typeInfo.volume,
+              emission: EMISSION_FACTORS[type],
+              status: 'busy',
+              currentOil: trip.load,
+              totalTrips: Math.floor(Math.random() * 30) + 5,
+              totalTime: Math.floor(Math.random() * 300) + 50,
+              totalPollution: trip.pollution,
+              totalRevenue: trip.cost * 2,
+              totalCost: trip.cost,
+              currentTrips: [trip],
+              tripStartTime: new Date(now - (Math.random() * 60 + 10) * 60000),
+              currentPollution: trip.pollution,
+              currentCost: trip.cost,
+              currentDistance: trip.distance,
+              plate: generateRandomPlate(),
+              currentRouteName: trip.routeName,
+              locationWarehouseId: warehouseId,
+              locationWarehouseName: warehouseName
+            };
+          } else {
+            truck = {
+              id: truckId++,
+              type: type,
+              volume: typeInfo.volume,
+              emission: EMISSION_FACTORS[type],
+              status: 'available',
+              currentOil: 0,
+              totalTrips: Math.floor(Math.random() * 30) + 5,
+              totalTime: Math.floor(Math.random() * 300) + 50,
+              totalPollution: 0,
+              totalRevenue: 0,
+              totalCost: 0,
+              currentTrips: [],
+              tripStartTime: null,
+              currentPollution: 0,
+              currentCost: 0,
+              currentDistance: 0,
+              plate: generateRandomPlate(),
+              currentRouteName: '',
+              locationWarehouseId: warehouseId,
+              locationWarehouseName: warehouseName
+            };
+          }
+          additionalTrucks.push(truck);
+        }
+        return additionalTrucks;
+      }
+      
+      function initFleet() {
+        const sampleTrips = createSampleTrips();
+        const now = new Date();
+        const baseTrucks = [
           { id: 1, type: 'SMALL', volume: 5, emission: 0.4, status: 'available', currentOil: 0, totalTrips: 45, totalTime: 320, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 1, locationWarehouseName: 'Kho Hải Phòng' },
           { id: 2, type: 'SMALL', volume: 5, emission: 0.4, status: 'available', currentOil: 0, totalTrips: 38, totalTime: 280, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 2, locationWarehouseName: 'Kho Hà Nội' },
-          { id: 3, type: 'MEDIUM', volume: 15, emission: 0.8, status: 'available', currentOil: 0, totalTrips: 28, totalTime: 210, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 1, locationWarehouseName: 'Kho Hải Phòng' },
-          { id: 4, type: 'MEDIUM', volume: 15, emission: 0.8, status: 'available', currentOil: 0, totalTrips: 19, totalTime: 150, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 3, locationWarehouseName: 'Kho Hải Dương' },
-          { id: 5, type: 'LARGE', volume: 30, emission: 1.2, status: 'available', currentOil: 0, totalTrips: 12, totalTime: 95, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 4, locationWarehouseName: 'Kho Quảng Ninh' },
+          { id: 3, type: 'MEDIUM', volume: 15, emission: 0.8, status: 'busy', currentOil: 12, totalTrips: 28, totalTime: 210, totalPollution: 84, totalRevenue: 0, totalCost: 0, currentTrips: [sampleTrips[0]], tripStartTime: new Date(now - 45 * 60000), currentPollution: 84, currentCost: 577500, currentDistance: 105, plate: generateRandomPlate(), currentRouteName: sampleTrips[0].routeName, locationWarehouseId: 1, locationWarehouseName: 'Kho Hải Phòng' },
+          { id: 4, type: 'MEDIUM', volume: 15, emission: 0.8, status: 'busy', currentOil: 25, totalTrips: 19, totalTime: 150, totalPollution: 54, totalRevenue: 0, totalCost: 0, currentTrips: [sampleTrips[1]], tripStartTime: new Date(now - 20 * 60000), currentPollution: 54, currentCost: 315000, currentDistance: 45, plate: generateRandomPlate(), currentRouteName: sampleTrips[1].routeName, locationWarehouseId: 3, locationWarehouseName: 'Kho Hải Dương' },
+          { id: 5, type: 'LARGE', volume: 30, emission: 1.2, status: 'busy', currentOil: 10, totalTrips: 12, totalTime: 95, totalPollution: 56, totalRevenue: 0, totalCost: 0, currentTrips: [sampleTrips[2]], tripStartTime: new Date(now - 90 * 60000), currentPollution: 56, currentCost: 385000, currentDistance: 70, plate: generateRandomPlate(), currentRouteName: sampleTrips[2].routeName, locationWarehouseId: 4, locationWarehouseName: 'Kho Quảng Ninh' },
           { id: 6, type: 'LARGE', volume: 30, emission: 1.2, status: 'available', currentOil: 0, totalTrips: 19, totalTime: 150, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 2, locationWarehouseName: 'Kho Hà Nội' },
           { id: 7, type: 'MEDIUM', volume: 15, emission: 0.8, status: 'available', currentOil: 0, totalTrips: 52, totalTime: 380, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 3, locationWarehouseName: 'Kho Hải Dương' },
           { id: 8, type: 'SMALL', volume: 5, emission: 0.4, status: 'available', currentOil: 0, totalTrips: 20, totalTime: 120, totalPollution: 0, totalRevenue: 0, totalCost: 0, currentTrips: [], tripStartTime: null, currentPollution: 0, currentCost: 0, currentDistance: 0, plate: generateRandomPlate(), locationWarehouseId: 1, locationWarehouseName: 'Kho Hải Phòng' }
         ];
-        return base.map(t => { const rev = t.totalTrips * 50 * COST_PER_KM[t.type]; return { ...t, totalRevenue: rev, totalCost: rev }; });
+        
+        const additionalTrucks = generateAdditionalTrucks();
+        const allTrucks = [...baseTrucks, ...additionalTrucks];
+        
+        return allTrucks.map(t => { 
+          const rev = t.totalTrips * 50 * COST_PER_KM[t.type]; 
+          return { ...t, totalRevenue: rev, totalCost: rev }; 
+        });
       }
       
       function initWarehouses() { return DEFAULT_WAREHOUSES.map(w => ({ ...w })); }
@@ -1641,7 +1725,7 @@
       warehouses = initWarehouses();
       potentialWarehouses = [];
       
-      // Các hàm render và xử lý sự kiện (giữ nguyên)
+      // ==================== CÁC HÀM RENDER, FILTER ====================
       function updateLocationFilterButtons() {
         const container = document.getElementById('locationFilterButtons');
         const uniqueLocations = [...new Set(fleet.map(t => t.locationWarehouseName))];
@@ -1656,12 +1740,12 @@
         renderFleetList();
       }
       
+      let currentFilter = 'all', currentVolumeFilter = 'all', currentSortBy = 'plate';
+      let warehouseFilterText = '';
+      
       function setFilter(f) { currentFilter = f; document.querySelectorAll('[data-filter]').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-filter') === f)); renderFleetList(); }
       function setVolumeFilter(v) { currentVolumeFilter = v; document.querySelectorAll('[data-volume]').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-volume') === v)); renderFleetList(); }
       function setSortBy(s) { currentSortBy = s; document.querySelectorAll('[data-sort]').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-sort') === s)); renderFleetList(); }
-      
-      let currentFilter = 'all', currentVolumeFilter = 'all', currentSortBy = 'plate';
-      let warehouseFilterText = '';
       
       function getFilteredTrucks() {
         let f = [...fleet];
@@ -1682,10 +1766,15 @@
         container.innerHTML = filtered.map(truck => {
           const type = TRUCK_TYPES[truck.type];
           const locationName = truck.locationWarehouseName || 'Chưa xác định';
+          const elapsed = truck.tripStartTime ? (()=>{const e=Math.floor((Date.now()-new Date(truck.tripStartTime))/60000); const h=Math.floor(e/60), m=e%60; return h>0?`${h}h${m}p`:`${m}p`;})() : '0h';
+          const routeName = truck.currentRouteName || (truck.currentTrips?.[0]?.routeName) || '';
+          const tripDistance = truck.currentTrips?.[0]?.distance || truck.currentDistance || 0;
+          const dest = truck.currentTrips?.[0]?.destination || '';
+          
           return `<div class="truck-card ${truck.status==='busy'?'in-trip':''}">
             <div class="truck-header">
               <span class="truck-plate">${type.icon} ${truck.plate}</span>
-              <span class="truck-status ${truck.status==='busy'?'busy':'available'}">${truck.status==='busy'?'🔄':'✅'}</span>
+              <span class="truck-status ${truck.status==='busy'?'busy':'available'}">${truck.status==='busy'?'🔄 Đang giao':'✅ Rảnh'}</span>
             </div>
             <div class="truck-stats-row">
               <div class="stat-cell"><span class="icon">📦</span><span class="value">${type.volume}</span></div>
@@ -1695,12 +1784,43 @@
               <div class="stat-cell"><span class="icon">💰</span><span class="value">${formatMoneyInMillions(truck.totalRevenue)}</span></div>
             </div>
             <div class="truck-location">📍 ${locationName}</div>
-            <div class="trip-info">
-              <div class="trip-time-box">✅ Sẵn sàng</div>
-              <div class="trip-dest-box">${type.volume}m³ - ${type.name}</div>
-            </div>
+            ${truck.status==='busy' ? `
+              <div class="trip-info">
+                <div class="trip-time-box busy">⏱️ ${elapsed}</div>
+                <div class="trip-dest-box">🎯 ${dest.substring(0,18)}</div>
+              </div>
+              <div class="trip-distance-box">📏 ${formatNumber(tripDistance)} km</div>
+              ${routeName ? `<div class="route-name-badge">${routeName}</div>` : ''}
+              <div class="pollution-compact">🌿 ${(truck.currentPollution||0).toFixed(1)}kg | 💰 ${formatMoneyInMillions(truck.currentCost||0)}</div>
+              <button class="view-route-btn" onclick='viewTruckRoute(${JSON.stringify(truck).replace(/'/g, "\\'")})'>🗺️ Xem tuyến đường</button>
+            ` : `
+              <div class="trip-info">
+                <div class="trip-time-box">✅ Sẵn sàng nhận đơn</div>
+                <div class="trip-dest-box">${type.volume}m³ - ${type.name}</div>
+              </div>
+            `}
           </div>`;
         }).join('');
+      }
+      
+      function viewTruckRoute(truck){
+        if(!truck.currentTrips?.length){ showToast("Xe không có chuyến nào đang giao!"); return; }
+        const trip = truck.currentTrips[0];
+        const savedDistance = trip.distance;
+        showToast(`🚛 Xe ${truck.plate} | 📏 Quãng đường: ${savedDistance.toFixed(1)} km | ${trip.routeName || ''}`);
+        
+        if(trip.savedDirections) {
+          if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
+          currentRouteRenderers = [];
+          const renderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#ff5722", strokeWeight: 6, strokeOpacity: 0.9 } });
+          renderer.setDirections(trip.savedDirections);
+          currentRouteRenderers.push(renderer);
+          const bounds = new google.maps.LatLngBounds();
+          trip.savedDirections.routes[0].overview_path.forEach(p=>bounds.extend(p));
+          map.fitBounds(bounds);
+        } else {
+          showToast(`📍 Xe đang trên đường từ kho đến ${trip.destination}`);
+        }
       }
       
       function renderWarehouseList() {
@@ -1709,9 +1829,11 @@
         if (warehouseFilterText) filtered = filtered.filter(w => w.name.toLowerCase().includes(warehouseFilterText.toLowerCase()));
         if(filtered.length===0){ container.innerHTML='<div class="no-result">🏭 Không có kho nào</div>'; return; }
         container.innerHTML = filtered.map(warehouse => {
-          return `<div class="warehouse-card"><div class="warehouse-header-card"><span class="warehouse-name">🏭 ${warehouse.name}</span><span class="warehouse-status">📦 ${warehouse.oil}/${warehouse.capacity}</span></div><div class="warehouse-stats-row"><div class="stat-cell"><span class="icon">📍</span><span class="value">${warehouse.address.substring(0,20)}...</span></div><div class="stat-cell"><span class="icon">💰</span><span class="value">${(warehouse.openCost || 0).toFixed(0)}tr</span></div><div class="stat-cell"><span class="icon">⚙️</span><span class="value">${(warehouse.operatingCost || 0).toFixed(0)}tr/năm</span></div></div><button class="edit-warehouse-btn" onclick="openEditWarehouseModal(${warehouse.id})">✏️ Sửa</button><button class="delete-warehouse-btn" onclick="deleteWarehouse(${warehouse.id})">🗑️ Xóa</button><button class="view-performance-btn" onclick="showPerformanceDetail(${warehouse.id})">📊 Xem</button></div>`;
+          return `<div class="warehouse-card"><div class="warehouse-header-card"><span class="warehouse-name">🏭 ${warehouse.name}</span><span class="warehouse-status">📦 ${warehouse.oil}/${warehouse.capacity}</span></div><div class="warehouse-stats-row"><div class="stat-cell"><span class="icon">📍</span><span class="value">${warehouse.address.substring(0,20)}...</span></div><div class="stat-cell"><span class="icon">💰</span><span class="value">${(warehouse.openCost || 0).toFixed(0)}tr</span></div><div class="stat-cell"><span class="icon">⚙️</span><span class="value">${(warehouse.operatingCost || 0).toFixed(0)}tr/năm</span></div></div><button class="refuel-btn" onclick="openRefuelModal(${warehouse.id}, '${warehouse.name}')">⛽ Nạp dầu</button><button class="edit-warehouse-btn" onclick="openEditWarehouseModal(${warehouse.id})">✏️ Sửa</button><button class="delete-warehouse-btn" onclick="deleteWarehouse(${warehouse.id})">🗑️ Xóa</button><button class="view-performance-btn" onclick="showPerformanceDetail(${warehouse.id})">📊 Xem</button></div>`;
         }).join('');
       }
+      
+      function filterWarehouses() { warehouseFilterText = document.getElementById('searchWarehouse').value; renderWarehouseList(); }
       
       function renderRatingList() {
         const container = document.getElementById('ratingList');
@@ -1736,8 +1858,6 @@
       
       function setRatingSort(sort) { currentRatingSort = sort; document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active')); document.querySelector(`.sort-btn[data-sort="${sort}"]`).classList.add('active'); renderRatingList(); }
       function setRankFilter(rank) { currentRankFilter = rank; document.querySelectorAll('[data-rank]').forEach(btn => btn.classList.remove('active')); document.querySelector(`[data-rank="${rank}"]`).classList.add('active'); renderRatingList(); }
-      
-      function filterWarehouses() { warehouseFilterText = document.getElementById('searchWarehouse').value; renderWarehouseList(); }
       
       function updateWarehouseStats() {
         document.getElementById('totalWarehouses').textContent = `${warehouses.length} kho`;
@@ -1769,6 +1889,7 @@
         showToast(`✅ Thêm xe ${TRUCK_TYPES[type].volume}m³ tại ${locationName}`);
       }
       
+      // ==================== CÁC HÀM QUẢN LÝ KHO ====================
       function openAddWarehouseModal() {
         document.getElementById('modalIcon').innerHTML = '🏭';
         document.getElementById('modalTitle').innerHTML = 'THÊM KHO MỚI';
@@ -1847,15 +1968,7 @@
         }
       }
       
-      function loadWarehouseSelect() {
-        // Hàm này dùng cho phần tạo đơn (nếu có select)
-      }
-      
-      function getCurrentWarehouseAddress() {
-        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
-        return warehouse ? warehouse.address : '';
-      }
-      
+      // ==================== CÁC HÀM TẠO ĐƠN HÀNG ====================
       async function findNearestWarehouse(destinationAddress) {
         if (!destinationAddress) return null;
         const geocoder = new google.maps.Geocoder();
@@ -1896,6 +2009,11 @@
         }
       }
       
+      function getCurrentWarehouseAddress() {
+        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
+        return warehouse ? warehouse.address : '';
+      }
+      
       function addWaypoint() {
         const container = document.getElementById('waypoints-container');
         const div = document.createElement('div');
@@ -1917,6 +2035,26 @@
       function getTotalOil(){ return Array.from(document.querySelectorAll('.waypoint-volume')).reduce((s,inp)=>s+(parseFloat(inp.value)||0),0); }
       function updateOrderSummary(){ const total=getTotalOil(); if(total===0){document.getElementById('orderSummary').style.display='none';return;} document.getElementById('totalOilDisplay').textContent=total; document.getElementById('orderSummary').style.display='block'; }
       
+      function getWaypoints(){
+        const items = document.querySelectorAll('.waypoint-item');
+        const waypoints=[], deliveries=[];
+        for(let item of items){
+          const addr = item.querySelector('.waypoint-address').value.trim();
+          const vol = parseFloat(item.querySelector('.waypoint-volume').value)||0;
+          if(!addr){ showToast("⚠️ Nhập địa chỉ!"); return null; }
+          if(vol<=0){ showToast("⚠️ Số dầu >0!"); return null; }
+          waypoints.push({ location: addr, stopover: true });
+          deliveries.push({ address: addr, volume: vol });
+        }
+        return { waypoints, deliveries };
+      }
+      
+      function createAutocomplete(input){
+        const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'vn'},fields:['formatted_address']});
+        autocompleteInstances.push(ac);
+        google.maps.event.addListener(ac, 'place_changed', function() { updateAutoWarehouse(); });
+      }
+      
       function resetOrder(){
         document.getElementById('waypoints-container').innerHTML='';
         addWaypoint();
@@ -1937,79 +2075,226 @@
         actionBtn.classList.remove('btn-confirm');
       }
       
-      function createAutocomplete(input){
-        const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'vn'},fields:['formatted_address']});
-        autocompleteInstances.push(ac);
-        google.maps.event.addListener(ac, 'place_changed', function() { updateAutoWarehouse(); });
-      }
-      
-      function initMap() {
-        const haiPhong = { lat: 20.844, lng: 106.688 };
-        map = new google.maps.Map(document.getElementById("map"), { zoom: 12, center: haiPhong });
-        addWaypoint();
-        renderFleetList();
-        updateFleetStats();
-        renderWarehouseList();
-        renderRatingList();
-        renderPotentialList();
-        updateWarehouseStats();
-        updateLocationFilterButtons();
-        startTripTimers();
-      }
-      
-      function startTripTimers() { setInterval(() => { renderFleetList(); updateFleetStats(); }, 1000); }
-      
-      function showMapSidebar() {
-        document.getElementById('mainSidebar').classList.remove('hidden-sidebar');
-        document.getElementById('fleetSidebar').classList.add('hidden-sidebar');
-        document.getElementById('warehouseSidebar').classList.add('hidden-sidebar');
-        document.getElementById('btnMap').classList.add('active');
-        document.getElementById('btnFleet').classList.remove('active');
-        document.getElementById('btnWarehouse').classList.remove('active');
-      }
-      
-      function showFleetSidebar() {
-        document.getElementById('mainSidebar').classList.add('hidden-sidebar');
-        document.getElementById('fleetSidebar').classList.remove('hidden-sidebar');
-        document.getElementById('warehouseSidebar').classList.add('hidden-sidebar');
-        document.getElementById('btnFleet').classList.add('active');
-        document.getElementById('btnMap').classList.remove('active');
-        document.getElementById('btnWarehouse').classList.remove('active');
-        renderFleetList();
-        updateFleetStats();
-      }
-      
-      function showWarehouseSidebar() {
-        document.getElementById('mainSidebar').classList.add('hidden-sidebar');
-        document.getElementById('fleetSidebar').classList.add('hidden-sidebar');
-        document.getElementById('warehouseSidebar').classList.remove('hidden-sidebar');
-        document.getElementById('btnWarehouse').classList.add('active');
-        document.getElementById('btnMap').classList.remove('active');
-        document.getElementById('btnFleet').classList.remove('active');
-        renderWarehouseList();
-        renderRatingList();
-        renderPotentialList();
-        updateWarehouseStats();
-      }
-      
-      function switchWarehouseTab(tab) {
-        document.querySelectorAll('.warehouse-tab').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        if (tab === 'list') {
-          document.querySelector('.warehouse-tab:first-child').classList.add('active');
-          document.getElementById('tab-list').classList.add('active');
-          renderWarehouseList();
-        } else if (tab === 'rating') {
-          document.querySelectorAll('.warehouse-tab')[1].classList.add('active');
-          document.getElementById('tab-rating').classList.add('active');
-          renderRatingList();
-        } else {
-          document.querySelectorAll('.warehouse-tab')[2].classList.add('active');
-          document.getElementById('tab-potential').classList.add('active');
-          renderPotentialList();
+      async function fetchAlternativeRoutes() {
+        if(!currentWarehouseId) { showToast("⚠️ Không tìm thấy kho phù hợp!"); return; }
+        const waypointData = getWaypoints();
+        if(!waypointData) return;
+        const { waypoints, deliveries } = waypointData;
+        const totalOil = getTotalOil();
+        if(deliveries.length===0 || totalOil===0){ showToast("⚠️ Nhập đủ địa chỉ và số dầu!"); return; }
+        const originAddress = getCurrentWarehouseAddress();
+        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
+        if(warehouse.oil < totalOil) { showToast(`⚠️ Kho ${warehouse.name} chỉ còn ${warehouse.oil} m³ dầu!`); return; }
+        pendingDeliveries = deliveries;
+        pendingTotalOil = totalOil;
+        showLoading();
+        const directionsService = new google.maps.DirectionsService();
+        const requestBase = { origin: originAddress, destination: deliveries[deliveries.length-1].address, waypoints: waypoints.slice(0,-1), travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.METRIC };
+        
+        const variations = [
+          { name: "⭐ Tối ưu", options: { avoidTolls: false, avoidHighways: false } },
+          { name: "💰 Chi phí", options: { avoidTolls: true, avoidHighways: false } },
+          { name: "🌿 Phát thải", options: { avoidTolls: false, avoidHighways: true } },
+          { name: "⏱️ Thời gian", options: { avoidTolls: true, avoidHighways: true } }
+        ];
+        
+        let routesFound = [];
+        for(let idx=0; idx<variations.length; idx++) {
+          const varOpt = variations[idx];
+          const request = { ...requestBase, ...varOpt.options };
+          await new Promise((resolve) => {
+            directionsService.route(request, (result, status) => {
+              if(status === 'OK' && result && result.routes.length>0){
+                let totalDistance=0, totalTime=0;
+                result.routes[0].legs.forEach(leg=>{ totalDistance+=leg.distance.value; totalTime+=leg.duration.value; });
+                const totalDistanceKm = totalDistance/1000;
+                const pollutionExample = totalDistanceKm * 0.8;
+                const costExample = totalDistanceKm * 5500;
+                routesFound.push({ name: varOpt.name, directionsResult: result, totalDistanceKm, totalTimeMin: totalTime/60, totalPollution: pollutionExample, totalCost: costExample });
+              }
+              resolve();
+            });
+          });
         }
+        if(routesFound.length === 0){ hideLoading(); showToast("❌ Không tìm được tuyến!"); return; }
+        alternativeRoutes = routesFound;
+        activeRouteIndex = 0;
+        displayRoutesList();
+        showRoutePreview(0);
+        hideLoading();
+        document.getElementById('routesPanel').style.display = 'flex';
+        const actionBtn = document.getElementById('actionBtn');
+        actionBtn.textContent = "✅ XÁC NHẬN ĐƠN";
+        actionBtn.classList.add('btn-confirm');
+        showToast("✅ Đã tìm thấy tuyến. Hãy chọn 1 tuyến và bấm Xác nhận đơn.");
       }
       
+      function showRoutePreview(routeIndex) {
+        const route = alternativeRoutes[routeIndex];
+        if(!route) return;
+        if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
+        currentRouteRenderers = [];
+        const renderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#ff9800", strokeWeight: 5, strokeOpacity: 0.9 } });
+        renderer.setDirections(route.directionsResult);
+        currentRouteRenderers.push(renderer);
+        const bounds = new google.maps.LatLngBounds();
+        route.directionsResult.routes[0].overview_path.forEach(p=>bounds.extend(p));
+        map.fitBounds(bounds);
+      }
+      
+      function displayRoutesList() {
+        const container = document.getElementById('routesListContainer');
+        if(!alternativeRoutes.length){ container.innerHTML='<div class="no-routes">🔍 Không có tuyến</div>'; return; }
+        container.innerHTML = alternativeRoutes.map((route, idx)=>`<div class="route-item ${idx === activeRouteIndex ? 'active' : ''}" onclick="selectRoute(${idx})"><div class="route-info"><div class="route-name">${route.name}</div><div class="route-meta"><span>📏 ${route.totalDistanceKm.toFixed(1)} km</span><span>⏱️ ${route.totalTimeMin.toFixed(0)}p</span></div><div class="route-pollution">🌿 ${route.totalPollution.toFixed(1)}kg | 💰 ${formatMoneyInMillions(route.totalCost)}</div></div><div class="route-badge">${idx===activeRouteIndex?'✔️':'Chọn'}</div></div>`).join('');
+      }
+      
+      function selectRoute(index) {
+        if(index === activeRouteIndex) return;
+        activeRouteIndex = index;
+        showRoutePreview(index);
+        displayRoutesList();
+        showToast(`Đã chọn tuyến: ${alternativeRoutes[index].name}`);
+      }
+      
+      // ==================== HÀM CHỌN XE THEO KHO ====================
+      function selectMinTrucksFromWarehouse(totalOil, warehouseId) {
+        // CHỈ LẤY XE RẢNH TẠI KHO ĐÃ CHỌN
+        const availableTrucksAtWarehouse = fleet.filter(t => t.status === 'available' && t.locationWarehouseId === warehouseId);
+        
+        if (availableTrucksAtWarehouse.length === 0) {
+          return { selected: [], success: false, error: `Không có xe rảnh tại kho này!` };
+        }
+        
+        let remaining = totalOil;
+        const selected = [];
+        let remainingTrucks = [...availableTrucksAtWarehouse].sort((a,b) => b.volume - a.volume);
+        
+        while(remaining > 0 && remainingTrucks.length > 0){
+          let bestIndex = -1, bestFit = 0;
+          for(let i=0;i<remainingTrucks.length;i++){ 
+            if(remainingTrucks[i].volume <= remaining && remainingTrucks[i].volume > bestFit){ 
+              bestFit = remainingTrucks[i].volume; 
+              bestIndex = i; 
+            } 
+          }
+          if(bestIndex === -1){ 
+            bestIndex = 0; 
+            bestFit = remainingTrucks[0].volume; 
+          }
+          const truck = remainingTrucks[bestIndex];
+          const load = Math.min(bestFit, remaining);
+          selected.push({ ...truck, load });
+          remaining -= load;
+          remainingTrucks.splice(bestIndex,1);
+        }
+        
+        return { selected, success: remaining === 0, error: remaining > 0 ? `Không đủ xe để chở ${remaining} m³ dầu!` : null };
+      }
+      
+      function confirmOrder() {
+        if(!pendingDeliveries) { showToast("⚠️ Chưa có đơn hàng nào được tìm tuyến."); return; }
+        if(activeRouteIndex === -1 || !alternativeRoutes[activeRouteIndex]) { showToast("⚠️ Vui lòng chọn một tuyến đường trước khi xác nhận."); return; }
+        
+        selectedRouteData = alternativeRoutes[activeRouteIndex];
+        const deliveries = pendingDeliveries;
+        const totalOil = pendingTotalOil;
+        const totalDistanceKm = selectedRouteData.totalDistanceKm;
+        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
+        
+        if(!warehouse) { showToast("⚠️ Không tìm thấy kho!"); return; }
+        if(warehouse.oil < totalOil) { showToast(`⚠️ Kho ${warehouse.name} chỉ còn ${warehouse.oil} m³ dầu!`); return; }
+        
+        // CHỌN XE TẠI ĐÚNG KHO NÀY
+        const { selected, success, error } = selectMinTrucksFromWarehouse(totalOil, warehouse.id);
+        
+        if(!success){ 
+          showToast(`❌ ${error || "Không đủ xe tại kho này!"}`); 
+          showFleetSidebar();
+          return; 
+        }
+        
+        // Trừ dầu từ kho
+        warehouse.oil -= totalOil;
+        updateWarehouseStats();
+        renderWarehouseList();
+        renderRatingList();
+        
+        const results = [];
+        selected.forEach(truck => {
+          const pollution = calcPollution(totalDistanceKm, truck.type);
+          const cost = calcTripCost(totalDistanceKm, truck.type);
+          const idx = fleet.findIndex(t=>t.id===truck.id);
+          if(idx!==-1){
+            fleet[idx].currentTrips = [{ 
+              waypoints: deliveries.map(d=>d.address), 
+              load: truck.load, 
+              destination: deliveries[deliveries.length-1].address, 
+              distance: totalDistanceKm, 
+              pollution: pollution, 
+              cost: cost, 
+              hours: totalDistanceKm/40, 
+              savedDirections: selectedRouteData.directionsResult, 
+              routeName: selectedRouteData.name 
+            }];
+            fleet[idx].status = 'busy';
+            fleet[idx].currentOil += truck.load;
+            fleet[idx].totalTrips++;
+            fleet[idx].totalTime += Math.round(totalDistanceKm/40);
+            fleet[idx].totalPollution += pollution;
+            fleet[idx].totalRevenue = fleet[idx].totalTrips * 50 * COST_PER_KM[fleet[idx].type];
+            fleet[idx].tripStartTime = new Date();
+            fleet[idx].currentPollution = pollution;
+            fleet[idx].currentCost = cost;
+            fleet[idx].currentDistance = totalDistanceKm;
+            fleet[idx].currentRouteName = selectedRouteData.name;
+            results.push({ truck, load: truck.load, distance: totalDistanceKm, pollution, cost, destination: deliveries[deliveries.length-1].address });
+          }
+        });
+        
+        renderFleetList(); 
+        updateFleetStats();
+        
+        if(confirmedRouteRenderer) confirmedRouteRenderer.setMap(null);
+        confirmedRouteRenderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#00acc1", strokeWeight: 6, strokeOpacity: 0.8 } });
+        confirmedRouteRenderer.setDirections(selectedRouteData.directionsResult);
+        if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
+        currentRouteRenderers = [];
+        
+        const totalPoll = results.reduce((s,r)=>s+r.pollution,0);
+        const totalCostSum = results.reduce((s,r)=>s+r.cost,0);
+        let deliveriesHtml = '', cum=0;
+        deliveries.forEach((d,i)=>{ cum+=d.volume; deliveriesHtml+=`<div class="result-card"><strong>${i+1}.</strong> ${d.address}<br>⛽ ${d.volume} m³ (tổng: ${cum} m³)</div>`; });
+        let trucksHtml = '';
+        results.forEach((r,i)=>{ 
+          const type = TRUCK_TYPES[r.truck.type]; 
+          trucksHtml += `<div class="result-card"><strong>🚛 ${r.truck.plate}</strong> (${type.volume}m³)<br>📦 ${r.load}m³ | 🌿 ${r.pollution.toFixed(1)}kg | 💰 ${formatMoneyInMillions(r.cost)}<br>🗺️ ${deliveries.map(d=>d.address).join(' → ')}<br>📏 ${r.distance.toFixed(1)} km</div>`; 
+        });
+        
+        document.getElementById('resultPanel').innerHTML = `<div class="result-pollution"><div>🌿 CO₂ & 💰 CHI PHÍ</div><div class="big-number">${totalPoll.toFixed(1)} kg</div><div style="font-size:18px;font-weight:bold;">💰 ${formatMoneyInMillions(totalCostSum)}</div><div style="font-size:11px;">🚛 ${results.length} xe | 📦 ${totalOil} m³</div><div>📏 ${totalDistanceKm.toFixed(1)} km</div><div>🏭 Kho: ${warehouse.name}</div></div><div class="result-title">⛽ ĐIỂM GIAO</div>${deliveriesHtml}<div class="result-title">🚛 PHÂN CÔNG XE</div>${trucksHtml}`;
+        
+        showToast(`✅ Đơn hàng đã được xác nhận! Xe tại kho ${warehouse.name} đã được điều động. Quãng đường: ${totalDistanceKm.toFixed(1)} km`);
+        
+        pendingDeliveries = null;
+        alternativeRoutes = [];
+        activeRouteIndex = -1;
+        document.getElementById('routesPanel').style.display = 'none';
+        const actionBtn = document.getElementById('actionBtn');
+        actionBtn.textContent = "🌱 TÌM TUYẾN ĐƯỜNG";
+        actionBtn.classList.remove('btn-confirm');
+        document.getElementById('waypoints-container').innerHTML = '';
+        addWaypoint();
+        document.querySelector('.waypoint-volume').value = '5';
+        updateOrderSummary();
+        updateAutoWarehouse();
+      }
+      
+      function handlePrimaryAction() {
+        const btn = document.getElementById('actionBtn');
+        if(btn.textContent.includes("XÁC NHẬN")) confirmOrder();
+        else fetchAlternativeRoutes();
+      }
+      
+      // ==================== QUẢN LÝ KHO TIỀM NĂNG ====================
       function renderPotentialList() {
         const container = document.getElementById('potentialList');
         if (potentialWarehouses.length === 0) { container.innerHTML = '<div class="no-result">🎯 Chưa có kho tiềm năng nào! Hãy thêm kho mới.</div>'; return; }
@@ -2071,7 +2356,7 @@
           <div style="font-size: 11px; font-weight: 600; margin-bottom: 5px;">🎯 KẾT QUẢ ĐÁNH GIÁ</div>
           <div style="font-size: 10px;">📊 m = ${m} | 🏆 n = ${n}</div>
           <div style="font-size: 10px; color: #00bcd4;">✅ Top đề xuất: ${bestN.map(w => w.name).join(', ') || 'Chưa có'}</div>
-          ${bestN.length > 0 ? `<button class="add-potential-btn" onclick='addAllSuggestedWarehouses(${JSON.stringify(bestN).replace(/"/g, '&quot;')})' style="margin-top: 8px; background: #4caf50;">📥 Thêm tất cả vào danh sách kho</button>` : ''}
+          ${bestN.length > 0 ? `<button class="add-potential-btn" onclick='addAllSuggestedWarehouses(${JSON.stringify(bestN).replace(/"/g, '&quot;')})' style="margin-top: 8px; background: #4caf50;">📥 Thêm tất cả vào danh sách kho chính</button>` : ''}
         </div>`;
         
         sorted.forEach((warehouse, idx) => {
@@ -2108,10 +2393,76 @@
               <div class="progress-bar"><div class="progress-fill" style="width: ${(perf.scores.capacity/25)*100}%"></div></div>
             </div>
             <button class="show-on-map-btn" onclick="showPotentialWarehouseOnMapById(${warehouse.id})">🗺️ Xem</button>
-            ${isBest ? `<button class="add-to-warehouse-btn" onclick='addPotentialToWarehouse(${JSON.stringify(warehouse).replace(/"/g, '&quot;')})'>➕ Thêm vào danh sách kho</button>` : ''}
+            ${isBest ? `<button class="add-to-warehouse-btn" onclick='addPotentialToWarehouse(${JSON.stringify(warehouse).replace(/"/g, '&quot;')})'>➕ Thêm vào danh sách kho chính</button>` : ''}
             <button class="delete-warehouse-btn" onclick="removePotentialWarehouse(${warehouse.id})">🗑️ Xóa</button>
           </div>`;
         });
+      }
+      
+      async function addPotentialToWarehouse(warehouse) {
+        const exists = warehouses.find(w => w.name === warehouse.name);
+        if (exists) {
+          showToast(`⚠️ Kho "${warehouse.name}" đã tồn tại trong danh sách!`);
+          return;
+        }
+        const newId = Math.max(...warehouses.map(w => w.id), 0) + 1;
+        let lat = warehouse.lat || null;
+        let lng = warehouse.lng || null;
+        if (!lat && warehouse.address) {
+          const coords = await geocodeAddress(warehouse.address);
+          if (coords) { lat = coords.lat; lng = coords.lng; }
+        }
+        warehouses.push({
+          id: newId,
+          name: warehouse.name,
+          address: warehouse.address,
+          capacity: warehouse.capacity,
+          oil: warehouse.oil || 0,
+          openCost: warehouse.openCost || 0,
+          operatingCost: warehouse.operatingCost || 0,
+          lat: lat,
+          lng: lng
+        });
+        renderWarehouseList();
+        renderRatingList();
+        updateWarehouseStats();
+        showToast(`✅ Đã thêm kho "${warehouse.name}" vào danh sách kho chính! Hệ thống sẽ tự động xem xét kho này khi tạo đơn.`);
+      }
+      
+      async function addAllSuggestedWarehouses(suggestedList) {
+        let addedCount = 0;
+        for (const warehouse of suggestedList) {
+          const exists = warehouses.find(w => w.name === warehouse.name);
+          if (!exists) {
+            const newId = Math.max(...warehouses.map(w => w.id), 0) + 1;
+            let lat = warehouse.lat || null;
+            let lng = warehouse.lng || null;
+            if (!lat && warehouse.address) {
+              const coords = await geocodeAddress(warehouse.address);
+              if (coords) { lat = coords.lat; lng = coords.lng; }
+            }
+            warehouses.push({
+              id: newId,
+              name: warehouse.name,
+              address: warehouse.address,
+              capacity: warehouse.capacity,
+              oil: warehouse.oil || 0,
+              openCost: warehouse.openCost || 0,
+              operatingCost: warehouse.operatingCost || 0,
+              lat: lat,
+              lng: lng
+            });
+            addedCount++;
+          }
+        }
+        if (addedCount > 0) {
+          renderWarehouseList();
+          renderRatingList();
+          updateWarehouseStats();
+          showToast(`✅ Đã thêm ${addedCount} kho mới vào danh sách kho chính! Hệ thống sẽ tự động xem xét các kho này khi tạo đơn.`);
+        } else {
+          showToast(`⚠️ Không có kho mới nào được thêm (các kho đã tồn tại)`);
+        }
       }
       
       function showPotentialWarehouseOnMapById(id) {
@@ -2160,6 +2511,7 @@
         renderPotentialList();
         closePotentialModal();
         showToast(`✅ Đã thêm kho tiềm năng: ${name}`);
+        if (lat && lng) showPotentialWarehouseOnMapById(newId);
       }
       
       function setPriority(priority) {
@@ -2181,203 +2533,253 @@
       
       function closePerformanceModal() { document.getElementById('performanceModal').style.display = 'none'; }
       
-      function handlePrimaryAction() {
-        const btn = document.getElementById('actionBtn');
-        if(btn.textContent.includes("XÁC NHẬN")) confirmOrder();
-        else fetchAlternativeRoutes();
-      }
-      
-      async function fetchAlternativeRoutes() {
-        if(!currentWarehouseId) { showToast("⚠️ Không tìm thấy kho phù hợp!"); return; }
-        const waypointData = getWaypoints();
-        if(!waypointData) return;
-        const { waypoints, deliveries } = waypointData;
-        const totalOil = getTotalOil();
-        if(deliveries.length===0 || totalOil===0){ showToast("⚠️ Nhập đủ địa chỉ và số dầu!"); return; }
-        const originAddress = getCurrentWarehouseAddress();
-        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
-        if(warehouse.oil < totalOil) { showToast(`⚠️ Kho ${warehouse.name} chỉ còn ${warehouse.oil} m³ dầu!`); return; }
-        pendingDeliveries = deliveries;
-        pendingTotalOil = totalOil;
-        showLoading();
-        const directionsService = new google.maps.DirectionsService();
-        const requestBase = { origin: originAddress, destination: deliveries[deliveries.length-1].address, waypoints: waypoints.slice(0,-1), travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.METRIC };
-        const variations = [
-          { name: "⭐ Tối ưu nhất", options: { avoidTolls: false, avoidHighways: false } },
-          { name: "💰 Chi phí thấp", options: { avoidTolls: true, avoidHighways: false } },
-          { name: "🌿 Phát thải thấp", options: { avoidTolls: false, avoidHighways: true } },
-          { name: "⏱️ Thời gian nhanh", options: { avoidTolls: true, avoidHighways: true } }
-        ];
-        let routesFound = [];
-        for(let idx=0; idx<variations.length; idx++) {
-          const varOpt = variations[idx];
-          const request = { ...requestBase, ...varOpt.options };
-          await new Promise((resolve) => {
-            directionsService.route(request, (result, status) => {
-              if(status === 'OK' && result && result.routes.length>0){
-                let totalDistance=0, totalTime=0;
-                result.routes[0].legs.forEach(leg=>{ totalDistance+=leg.distance.value; totalTime+=leg.duration.value; });
-                const totalDistanceKm = totalDistance/1000;
-                const pollutionExample = totalDistanceKm * 0.8;
-                const costExample = totalDistanceKm * 5500;
-                routesFound.push({ name: varOpt.name, directionsResult: result, totalDistanceKm, totalTimeMin: totalTime/60, totalPollution: pollutionExample, totalCost: costExample });
-              }
-              resolve();
-            });
-          });
-        }
-        if(routesFound.length === 0){ hideLoading(); showToast("❌ Không tìm được tuyến!"); return; }
-        alternativeRoutes = routesFound;
-        activeRouteIndex = 0;
-        displayRoutesList();
-        showRoutePreview(0);
-        hideLoading();
-        document.getElementById('routesPanel').style.display = 'flex';
-        const actionBtn = document.getElementById('actionBtn');
-        actionBtn.textContent = "✅ XÁC NHẬN ĐƠN";
-        actionBtn.classList.add('btn-confirm');
-        showToast("✅ Đã tìm thấy tuyến. Hãy chọn 1 tuyến và bấm Xác nhận đơn.");
-      }
-      
-      function showRoutePreview(routeIndex) {
-        const route = alternativeRoutes[routeIndex];
-        if(!route) return;
-        if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
-        currentRouteRenderers = [];
-        const renderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#ff9800", strokeWeight: 5, strokeOpacity: 0.9 } });
-        renderer.setDirections(route.directionsResult);
-        currentRouteRenderers.push(renderer);
-        const bounds = new google.maps.LatLngBounds();
-        route.directionsResult.routes[0].overview_path.forEach(p=>bounds.extend(p));
-        map.fitBounds(bounds);
-      }
-      
-      function displayRoutesList() {
-        const container = document.getElementById('routesListContainer');
-        if(!alternativeRoutes.length){ container.innerHTML='<div class="no-routes">🔍 Không có tuyến</div>'; return; }
-        container.innerHTML = alternativeRoutes.map((route, idx)=>`<div class="route-item ${idx === activeRouteIndex ? 'active' : ''}" onclick="selectRoute(${idx})"><div class="route-info"><div class="route-name">${route.name}</div><div class="route-meta"><span>📏 ${route.totalDistanceKm.toFixed(1)} km</span><span>⏱️ ${route.totalTimeMin.toFixed(0)}p</span></div><div class="route-pollution">🌿 ${route.totalPollution.toFixed(1)}kg | 💰 ${formatMoneyInMillions(route.totalCost)}</div></div><div class="route-badge">${idx===activeRouteIndex?'✔️':'Chọn'}</div></div>`).join('');
-      }
-      
-      function selectRoute(index) {
-        if(index === activeRouteIndex) return;
-        activeRouteIndex = index;
-        showRoutePreview(index);
-        displayRoutesList();
-        showToast(`Đã chọn tuyến: ${alternativeRoutes[index].name}`);
-      }
-      
-      function confirmOrder() {
-        if(!pendingDeliveries) { showToast("⚠️ Chưa có đơn hàng nào được tìm tuyến."); return; }
-        if(activeRouteIndex === -1 || !alternativeRoutes[activeRouteIndex]) { showToast("⚠️ Vui lòng chọn một tuyến đường trước khi xác nhận."); return; }
-        selectedRouteData = alternativeRoutes[activeRouteIndex];
-        const deliveries = pendingDeliveries;
-        const totalOil = pendingTotalOil;
-        const totalDistanceKm = selectedRouteData.totalDistanceKm;
-        const warehouse = warehouses.find(w => w.id === currentWarehouseId);
-        if(warehouse.oil < totalOil) { showToast(`⚠️ Kho ${warehouse.name} không đủ dầu! Còn ${warehouse.oil} m³`); return; }
-        warehouse.oil -= totalOil;
-        updateWarehouseStats();
-        renderWarehouseList();
-        renderRatingList();
-        const available = fleet.filter(t=>t.status==='available');
-        if(available.length===0){ showToast("❌ Không có xe rảnh!"); showFleetSidebar(); return; }
-        const { selected, success } = selectMinTrucks(totalOil, available);
-        if(!success){ showToast("⚠️ Không đủ xe!"); return; }
-        const results = [];
-        selected.forEach(truck => {
-          const pollution = calcPollution(totalDistanceKm, truck.type);
-          const cost = calcTripCost(totalDistanceKm, truck.type);
-          const idx = fleet.findIndex(t=>t.id===truck.id);
-          if(idx!==-1){
-            fleet[idx].currentTrips = [{ waypoints: deliveries.map(d=>d.address), load: truck.load, destination: deliveries[deliveries.length-1].address, distance: totalDistanceKm, pollution: pollution, cost: cost, hours: totalDistanceKm/40, savedDirections: selectedRouteData.directionsResult, routeName: selectedRouteData.name }];
-            fleet[idx].status = 'busy';
-            fleet[idx].currentOil += truck.load;
-            fleet[idx].totalTrips++;
-            fleet[idx].totalTime += Math.round(totalDistanceKm/40);
-            fleet[idx].totalPollution += pollution;
-            fleet[idx].totalRevenue = fleet[idx].totalTrips * 50 * COST_PER_KM[fleet[idx].type];
-            fleet[idx].tripStartTime = new Date();
-            fleet[idx].currentPollution = pollution;
-            fleet[idx].currentCost = cost;
-            fleet[idx].currentDistance = totalDistanceKm;
-            fleet[idx].currentRouteName = selectedRouteData.name;
-            results.push({ truck, load: truck.load, distance: totalDistanceKm, pollution, cost, destination: deliveries[deliveries.length-1].address });
+      // ==================== CÁC HÀM NẠP DẦU ====================
+      function openRefuelModal(warehouseId, warehouseName) {
+        document.getElementById('targetWarehouseId').value = warehouseId;
+        document.getElementById('targetWarehouseName').value = warehouseName;
+        
+        const select = document.getElementById('sourceWarehouseId');
+        select.innerHTML = '<option value="">-- Chọn kho --</option>';
+        warehouses.forEach(w => {
+          if (w.id !== warehouseId) {
+            const option = document.createElement('option');
+            option.value = w.id;
+            option.textContent = `${w.name} (${w.oil}/${w.capacity} m³)`;
+            select.appendChild(option);
           }
         });
-        renderFleetList(); updateFleetStats();
-        if(confirmedRouteRenderer) confirmedRouteRenderer.setMap(null);
-        confirmedRouteRenderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#00acc1", strokeWeight: 6, strokeOpacity: 0.8 } });
-        confirmedRouteRenderer.setDirections(selectedRouteData.directionsResult);
-        if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
-        currentRouteRenderers = [];
-        const totalPoll = results.reduce((s,r)=>s+r.pollution,0);
-        const totalCostSum = results.reduce((s,r)=>s+r.cost,0);
-        let deliveriesHtml = '', cum=0;
-        deliveries.forEach((d,i)=>{ cum+=d.volume; deliveriesHtml+=`<div class="result-card"><strong>${i+1}.</strong> ${d.address}<br>⛽ ${d.volume} m³ (tổng: ${cum} m³)</div>`; });
-        let trucksHtml = '';
-        results.forEach((r,i)=>{ const type = TRUCK_TYPES[r.truck.type]; trucksHtml += `<div class="result-card"><strong>🚛 ${r.truck.plate}</strong> (${type.volume}m³)<br>📦 ${r.load}m³ | 🌿 ${r.pollution.toFixed(1)}kg | 💰 ${formatMoneyInMillions(r.cost)}<br>🗺️ ${deliveries.map(d=>d.address).join(' → ')}<br>📏 ${r.distance.toFixed(1)} km</div>`; });
-        document.getElementById('resultPanel').innerHTML = `<div class="result-pollution"><div>🌿 CO₂ & 💰 CHI PHÍ</div><div class="big-number">${totalPoll.toFixed(1)} kg</div><div style="font-size:18px;font-weight:bold;">💰 ${formatMoneyInMillions(totalCostSum)}</div><div style="font-size:11px;">🚛 ${results.length} xe | 📦 ${totalOil} m³</div><div>📏 ${totalDistanceKm.toFixed(1)} km</div><div>🏭 Kho: ${warehouse.name}</div></div><div class="result-title">⛽ ĐIỂM GIAO</div>${deliveriesHtml}<div class="result-title">🚛 PHÂN CÔNG XE</div>${trucksHtml}`;
-        showToast(`✅ Đơn hàng đã được xác nhận! Quãng đường: ${totalDistanceKm.toFixed(1)} km | Kho: ${warehouse.name} còn ${warehouse.oil} m³`);
-        pendingDeliveries = null;
-        alternativeRoutes = [];
-        activeRouteIndex = -1;
-        document.getElementById('routesPanel').style.display = 'none';
-        const actionBtn = document.getElementById('actionBtn');
-        actionBtn.textContent = "🌱 TÌM TUYẾN ĐƯỜNG";
-        actionBtn.classList.remove('btn-confirm');
-        document.getElementById('waypoints-container').innerHTML = '';
+        
+        document.getElementById('refuelAmount').value = '';
+        document.getElementById('refuelNote').value = '';
+        document.getElementById('sourceWarehouseInfo').innerHTML = 'Đang chờ chọn kho...';
+        document.getElementById('amountWarning').innerHTML = '';
+        document.getElementById('refuelModal').style.display = 'block';
+      }
+      
+      function closeRefuelModal() {
+        document.getElementById('refuelModal').style.display = 'none';
+      }
+      
+      function updateSourceWarehouseInfo() {
+        const sourceId = parseInt(document.getElementById('sourceWarehouseId').value);
+        if (sourceId) {
+          const warehouse = warehouses.find(w => w.id === sourceId);
+          if (warehouse) {
+            document.getElementById('sourceWarehouseInfo').innerHTML = `
+              <strong>${warehouse.name}</strong><br>
+              📍 ${warehouse.address.substring(0, 50)}...<br>
+              📦 Dầu hiện có: ${warehouse.oil} / ${warehouse.capacity} m³<br>
+              💰 Chi phí mở: ${(warehouse.openCost || 0).toLocaleString()} triệu<br>
+              ⚙️ Vận hành: ${(warehouse.operatingCost || 0).toLocaleString()} triệu/năm
+            `;
+            validateRefuelAmount();
+          }
+        } else {
+          document.getElementById('sourceWarehouseInfo').innerHTML = 'Đang chờ chọn kho...';
+        }
+      }
+      
+      function validateRefuelAmount() {
+        const sourceId = parseInt(document.getElementById('sourceWarehouseId').value);
+        const amount = parseFloat(document.getElementById('refuelAmount').value);
+        const warningDiv = document.getElementById('amountWarning');
+        
+        if (sourceId && !isNaN(amount) && amount > 0) {
+          const sourceWarehouse = warehouses.find(w => w.id === sourceId);
+          if (sourceWarehouse && amount > sourceWarehouse.oil) {
+            warningDiv.innerHTML = `⚠️ Kho xuất chỉ còn ${sourceWarehouse.oil} m³ dầu!`;
+            warningDiv.style.color = '#f44336';
+            return false;
+          } else {
+            warningDiv.innerHTML = `✅ Có thể chuyển ${amount} m³ dầu`;
+            warningDiv.style.color = '#4caf50';
+            return true;
+          }
+        }
+        warningDiv.innerHTML = '';
+        return true;
+      }
+      
+      async function createRefuelOrder(event) {
+        event.preventDefault();
+        
+        const targetId = parseInt(document.getElementById('targetWarehouseId').value);
+        const sourceId = parseInt(document.getElementById('sourceWarehouseId').value);
+        const amount = parseFloat(document.getElementById('refuelAmount').value);
+        const note = document.getElementById('refuelNote').value;
+        
+        if (!sourceId) {
+          showToast("⚠️ Vui lòng chọn kho xuất dầu!");
+          return;
+        }
+        
+        if (isNaN(amount) || amount <= 0) {
+          showToast("⚠️ Vui lòng nhập số lượng dầu hợp lệ!");
+          return;
+        }
+        
+        const sourceWarehouse = warehouses.find(w => w.id === sourceId);
+        const targetWarehouse = warehouses.find(w => w.id === targetId);
+        
+        if (!sourceWarehouse || !targetWarehouse) {
+          showToast("⚠️ Không tìm thấy thông tin kho!");
+          return;
+        }
+        
+        if (amount > sourceWarehouse.oil) {
+          showToast(`⚠️ Kho ${sourceWarehouse.name} chỉ còn ${sourceWarehouse.oil} m³ dầu!`);
+          return;
+        }
+        
+        if (targetWarehouse.oil + amount > targetWarehouse.capacity) {
+          showToast(`⚠️ Kho ${targetWarehouse.name} chỉ còn trống ${targetWarehouse.capacity - targetWarehouse.oil} m³!`);
+          return;
+        }
+        
+        showLoading();
+        
+        // CHỌN XE TẠI KHO XUẤT
+        const availableTrucksAtSource = fleet.filter(t => t.status === 'available' && t.locationWarehouseId === sourceId);
+        
+        if (availableTrucksAtSource.length === 0) {
+          hideLoading();
+          showToast(`❌ Không có xe rảnh tại kho ${sourceWarehouse.name}!`);
+          showFleetSidebar();
+          return;
+        }
+        
+        let selectedTruck = null;
+        for (const truck of availableTrucksAtSource) {
+          if (TRUCK_TYPES[truck.type].volume >= amount) {
+            selectedTruck = truck;
+            break;
+          }
+        }
+        
+        if (!selectedTruck) {
+          selectedTruck = availableTrucksAtSource.sort((a, b) => b.volume - a.volume)[0];
+        }
+        
+        const sourceCoords = { lat: sourceWarehouse.lat, lng: sourceWarehouse.lng };
+        const targetCoords = { lat: targetWarehouse.lat, lng: targetWarehouse.lng };
+        const distance = calculateDistance(sourceCoords.lat, sourceCoords.lng, targetCoords.lat, targetCoords.lng);
+        
+        const pollution = calcPollution(distance, selectedTruck.type);
+        const cost = calcTripCost(distance, selectedTruck.type);
+        
+        sourceWarehouse.oil -= amount;
+        targetWarehouse.oil += amount;
+        
+        const truckIndex = fleet.findIndex(t => t.id === selectedTruck.id);
+        if (truckIndex !== -1) {
+          fleet[truckIndex].currentTrips = [{
+            waypoints: [targetWarehouse.address],
+            load: amount,
+            destination: targetWarehouse.name,
+            distance: distance,
+            pollution: pollution,
+            cost: cost,
+            hours: distance / 40,
+            savedDirections: null,
+            routeName: `⛽ Chuyển kho: ${sourceWarehouse.name} → ${targetWarehouse.name}`
+          }];
+          fleet[truckIndex].status = 'busy';
+          fleet[truckIndex].currentOil += amount;
+          fleet[truckIndex].totalTrips++;
+          fleet[truckIndex].totalTime += Math.round(distance / 40);
+          fleet[truckIndex].totalPollution += pollution;
+          fleet[truckIndex].totalRevenue = fleet[truckIndex].totalTrips * 50 * COST_PER_KM[fleet[truckIndex].type];
+          fleet[truckIndex].tripStartTime = new Date();
+          fleet[truckIndex].currentPollution = pollution;
+          fleet[truckIndex].currentCost = cost;
+          fleet[truckIndex].currentDistance = distance;
+          fleet[truckIndex].currentRouteName = `⛽ Chuyển ${amount}m³ đến ${targetWarehouse.name}`;
+        }
+        
+        renderWarehouseList();
+        renderRatingList();
+        renderFleetList();
+        updateWarehouseStats();
+        updateFleetStats();
+        updateLocationFilterButtons();
+        
+        hideLoading();
+        closeRefuelModal();
+        
+        showToast(`✅ Đã tạo đơn chuyển ${amount} m³ dầu từ ${sourceWarehouse.name} đến ${targetWarehouse.name}! Xe ${selectedTruck.plate} tại kho ${sourceWarehouse.name} đang vận chuyển.`);
+        
+        setTimeout(() => {
+          showToast(`📏 Quãng đường: ${distance.toFixed(1)} km | ⏱️ Dự kiến: ${(distance/40).toFixed(1)} giờ | 🌿 ${pollution.toFixed(1)}kg CO₂`);
+        }, 2000);
+      }
+      
+      // ==================== CHUYỂN TAB ====================
+      function switchWarehouseTab(tab) {
+        document.querySelectorAll('.warehouse-tab').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        if (tab === 'list') {
+          document.querySelector('.warehouse-tab:first-child').classList.add('active');
+          document.getElementById('tab-list').classList.add('active');
+          renderWarehouseList();
+        } else if (tab === 'rating') {
+          document.querySelectorAll('.warehouse-tab')[1].classList.add('active');
+          document.getElementById('tab-rating').classList.add('active');
+          renderRatingList();
+        } else {
+          document.querySelectorAll('.warehouse-tab')[2].classList.add('active');
+          document.getElementById('tab-potential').classList.add('active');
+          renderPotentialList();
+        }
+      }
+      
+      // ==================== KHỞI TẠO BẢN ĐỒ ====================
+      function initMap() {
+        const haiPhong = { lat: 20.844, lng: 106.688 };
+        map = new google.maps.Map(document.getElementById("map"), { zoom: 12, center: haiPhong });
         addWaypoint();
-        document.querySelector('.waypoint-volume').value = '5';
-        updateOrderSummary();
-        updateAutoWarehouse();
+        renderFleetList();
+        updateFleetStats();
+        renderWarehouseList();
+        renderRatingList();
+        renderPotentialList();
+        updateWarehouseStats();
+        updateLocationFilterButtons();
+        startTripTimers();
       }
       
-      function selectMinTrucks(totalOil, availableTrucks){
-        let remaining = totalOil;
-        const selected = [];
-        let remainingTrucks = [...availableTrucks].sort((a,b)=>b.volume - a.volume);
-        while(remaining > 0 && remainingTrucks.length > 0){
-          let bestIndex = -1, bestFit = 0;
-          for(let i=0;i<remainingTrucks.length;i++){ if(remainingTrucks[i].volume <= remaining && remainingTrucks[i].volume > bestFit){ bestFit=remainingTrucks[i].volume; bestIndex=i; } }
-          if(bestIndex === -1){ bestIndex = 0; bestFit = remainingTrucks[0].volume; }
-          const truck = remainingTrucks[bestIndex];
-          const load = Math.min(bestFit, remaining);
-          selected.push({ ...truck, load });
-          remaining -= load;
-          remainingTrucks.splice(bestIndex,1);
-        }
-        return { selected, success: remaining===0 };
+      function startTripTimers() { setInterval(() => { renderFleetList(); updateFleetStats(); }, 1000); }
+      
+      function showMapSidebar() {
+        document.getElementById('mainSidebar').classList.remove('hidden-sidebar');
+        document.getElementById('fleetSidebar').classList.add('hidden-sidebar');
+        document.getElementById('warehouseSidebar').classList.add('hidden-sidebar');
+        document.getElementById('btnMap').classList.add('active');
+        document.getElementById('btnFleet').classList.remove('active');
+        document.getElementById('btnWarehouse').classList.remove('active');
       }
       
-      function getWaypoints(){
-        const items = document.querySelectorAll('.waypoint-item');
-        const waypoints=[], deliveries=[];
-        for(let item of items){
-          const addr = item.querySelector('.waypoint-address').value.trim();
-          const vol = parseFloat(item.querySelector('.waypoint-volume').value)||0;
-          if(!addr){ showToast("⚠️ Nhập địa chỉ!"); return null; }
-          if(vol<=0){ showToast("⚠️ Số dầu >0!"); return null; }
-          waypoints.push({ location: addr, stopover: true });
-          deliveries.push({ address: addr, volume: vol });
-        }
-        return { waypoints, deliveries };
+      function showFleetSidebar() {
+        document.getElementById('mainSidebar').classList.add('hidden-sidebar');
+        document.getElementById('fleetSidebar').classList.remove('hidden-sidebar');
+        document.getElementById('warehouseSidebar').classList.add('hidden-sidebar');
+        document.getElementById('btnFleet').classList.add('active');
+        document.getElementById('btnMap').classList.remove('active');
+        document.getElementById('btnWarehouse').classList.remove('active');
+        renderFleetList();
+        updateFleetStats();
       }
       
-      function viewTruckRoute(truck){
-        if(!truck.currentTrips?.length){ showToast("Xe không có chuyến!"); return; }
-        const trip = truck.currentTrips[0];
-        const savedDistance = trip.distance;
-        showToast(`📏 Quãng đường: ${savedDistance.toFixed(1)} km`);
-        if(trip.savedDirections) {
-          if(currentRouteRenderers.length) currentRouteRenderers.forEach(r=>r.setMap(null));
-          currentRouteRenderers = [];
-          const renderer = new google.maps.DirectionsRenderer({ map, polylineOptions: { strokeColor: "#ff5722", strokeWeight: 6, strokeOpacity: 0.9 } });
-          renderer.setDirections(trip.savedDirections);
-          currentRouteRenderers.push(renderer);
-          const bounds = new google.maps.LatLngBounds();
-          trip.savedDirections.routes[0].overview_path.forEach(p=>bounds.extend(p));
-          map.fitBounds(bounds);
-        }
+      function showWarehouseSidebar() {
+        document.getElementById('mainSidebar').classList.add('hidden-sidebar');
+        document.getElementById('fleetSidebar').classList.add('hidden-sidebar');
+        document.getElementById('warehouseSidebar').classList.remove('hidden-sidebar');
+        document.getElementById('btnWarehouse').classList.add('active');
+        document.getElementById('btnMap').classList.remove('active');
+        document.getElementById('btnFleet').classList.remove('active');
+        renderWarehouseList();
+        renderRatingList();
+        renderPotentialList();
+        updateWarehouseStats();
       }
       
       function toggleRoutesList(){ const panel=document.getElementById('routesPanel'); panel.classList.toggle('minimize-routes'); const btn=document.getElementById('toggleRoutesBtn'); btn.textContent=panel.classList.contains('minimize-routes')?'+':'−'; }
@@ -2386,9 +2788,10 @@
         if (event.target === document.getElementById('warehouseModal')) closeWarehouseModal();
         if (event.target === document.getElementById('performanceModal')) closePerformanceModal();
         if (event.target === document.getElementById('potentialModal')) closePotentialModal();
+        if (event.target === document.getElementById('refuelModal')) closeRefuelModal();
       }
       
-      // Xuất các hàm ra global
+      // Export các hàm ra global
       window.addPotentialToWarehouse = addPotentialToWarehouse;
       window.addAllSuggestedWarehouses = addAllSuggestedWarehouses;
       window.selectRoute = selectRoute;
@@ -2427,6 +2830,11 @@
       window.addPotentialWarehouse = addPotentialWarehouse;
       window.removePotentialWarehouse = removePotentialWarehouse;
       window.showPotentialWarehouseOnMapById = showPotentialWarehouseOnMapById;
+      window.openRefuelModal = openRefuelModal;
+      window.closeRefuelModal = closeRefuelModal;
+      window.updateSourceWarehouseInfo = updateSourceWarehouseInfo;
+      window.validateRefuelAmount = validateRefuelAmount;
+      window.createRefuelOrder = createRefuelOrder;
       
       function loadGoogleMaps(){ const script=document.createElement('script'); script.src=`https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=initMap&libraries=places`; script.async=true; document.head.appendChild(script); }
       loadGoogleMaps();
